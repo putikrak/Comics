@@ -14,6 +14,15 @@ public class EnvioService {
     private EnvioRepository repository;
 
     public Envio crearEnvio(Envio envio) {
+        if (envio.getEstado() == null) {
+            envio.setEstado("PREPARANDO");
+        }
+        if (envio.getFechaCreacion() == null) {
+            envio.setFechaCreacion(java.time.LocalDateTime.now());
+        }
+        if (envio.getFechaActualizacion() == null) {
+            envio.setFechaActualizacion(java.time.LocalDateTime.now());
+        }
         return repository.save(envio);
     }
 
