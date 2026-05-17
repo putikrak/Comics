@@ -1,6 +1,7 @@
 package com.carro.comic.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 
 @Entity
 @Table(name = "items_carro")
@@ -10,11 +11,21 @@ public class ItemCarro {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "El usuarioId es obligatorio")
     private String usuarioId;
+
+    @NotNull(message = "El comicId es obligatorio")
     private Long comicId;
+
+    @NotBlank(message = "El nombre del comic es obligatorio")
     private String nombreComic;
+
+    @Min(value = 1, message = "La cantidad debe ser al menos 1")
     private int cantidad;
+
+    @Positive(message = "El precio unitario debe ser mayor a 0")
     private double precioUnitario;
+
     private double subtotal;
 
     public ItemCarro() {

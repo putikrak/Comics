@@ -1,6 +1,7 @@
 package com.pedidos.comic.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import java.time.LocalDateTime;
 
 @Entity
@@ -11,9 +12,16 @@ public class Pedido {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "El usuarioId es obligatorio")
     private String usuarioId;
+
+    @NotBlank(message = "El estado es obligatorio")
     private String estado;
+
+    @Positive(message = "El total debe ser mayor a 0")
     private double total;
+
+    @NotBlank(message = "La direccion de envio es obligatoria")
     private String direccionEnvio;
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaActualizacion;

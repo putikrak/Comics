@@ -1,5 +1,6 @@
 package com.envios.comic.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +17,7 @@ public class EnvioController {
     private EnvioService service;
 
     @PostMapping
-    public Envio crearEnvio(@RequestBody Envio envio) {
+    public Envio crearEnvio(@Valid @RequestBody Envio envio) {
         return service.crearEnvio(envio);
     }
 

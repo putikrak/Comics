@@ -1,12 +1,9 @@
 package com.pedidos.comic.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import com.pedidos.comic.client.CarritoClient;
+import com.pedidos.comic.client.EnvioClient;
 import com.pedidos.comic.dto.ItemCarroDTO;
 import com.pedidos.comic.dto.EnvioDTO;
 import com.pedidos.comic.model.Pedido;
@@ -21,43 +18,40 @@ public class PedidoService {
     private PedidoRepository pedidoRepo;
 
     @Autowired
-    private RestTemplate restTemplate;
+    private CarritoClient carritoClient;
 
-    @Value("${microservicio.carrito.url}")
-    private String carritoServiceUrl;
-
-    @Value("${microservicio.envios.url}")
-    private String enviosServiceUrl;
+    @Autowired
+    private EnvioClient envioClient;
 
     public Pedido finalizarCompra(String usuarioId, String direccionEnvio) {
-        // 1. Obtener items del carrito desde el microservicio de carrito
-        List<ItemCarroDTO> itemsCarro = obtenerItemsCarrito(usuarioId);
+        List<ItemCarroDTO> itemsCarro = carritoClient.obtenerItemsCarrito(usuarioId);
 
         if (itemsCarro == null || itemsCarro.isEmpty()) {
             throw new RuntimeException("El carrito esta vacio para el usuario: " + usuarioId);
         }
 
-        // 2. Calcular el total del pedido
         double total = itemsCarro.stream()
                 .mapToDouble(ItemCarroDTO::getSubtotal)
                 .sum();
 
-        // 3. Crear el pedido
         Pedido nuevoPedido = new Pedido(usuarioId, "PROCESANDO");
         nuevoPedido.setTotal(total);
         nuevoPedido.setDireccionEnvio(direccionEnvio);
         Pedido pedidoGuardado = pedidoRepo.save(nuevoPedido);
 
-        // 4. Crear envio en el microservicio de envios
-        EnvioDTO envioCreado = crearEnvio(pedidoGuardado.getId(), usuarioId, direccionEnvio);
+        EnvioDTO envioRequest = new EnvioDTO();
+        envioRequest.setPedidoId(pedidoGuardado.getId());
+        envioRequest.setUsuarioId(usuarioId);
+        envioRequest.setDireccionDestino(direccionEnvio);
+        EnvioDTO envioCreado = envioClient.crearEnvio(envioRequest);
+
         if (envioCreado != null) {
             pedidoGuardado.setEnvioId(envioCreado.getId());
             pedidoGuardado.setEstado("CONFIRMADO");
             pedidoGuardado = pedidoRepo.save(pedidoGuardado);
         }
 
-        // 5. Vaciar el carrito del usuario
-        vaciarCarrito(usuarioId);
+        carritoClient.vaciarCarrito(usuarioId);
 
         return pedidoGuardado;
     }
@@ -83,44 +77,8 @@ public class PedidoService {
         return null;
     }
 
-    // --- Comunicacion con microservicio de Carrito ---
-
-    private List<ItemCarroDTO> obtenerItemsCarrito(String usuarioId) {
-        String url = carritoServiceUrl + "/carro/usuario/" + usuarioId;
-        ResponseEntity<List<ItemCarroDTO>> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<List<ItemCarroDTO>>() {}
-        );
-        return response.getBody();
-    }
-
-    private void vaciarCarrito(String usuarioId) {
-        String url = carritoServiceUrl + "/carro/vaciar/" + usuarioId;
-        restTemplate.delete(url);
-    }
-
-    // --- Comunicacion con microservicio de Envios ---
-
-    private EnvioDTO crearEnvio(Long pedidoId, String usuarioId, String direccionEnvio) {
-        String url = enviosServiceUrl + "/api/envios";
-        EnvioDTO envioRequest = new EnvioDTO();
-        envioRequest.setPedidoId(pedidoId);
-        envioRequest.setUsuarioId(usuarioId);
-        envioRequest.setDireccionDestino(direccionEnvio);
-        return restTemplate.postForObject(url, envioRequest, EnvioDTO.class);
-    }
-
     public EnvioDTO consultarEnvio(Long pedidoId) {
-        String url = enviosServiceUrl + "/api/envios/pedido/" + pedidoId;
-        ResponseEntity<List<EnvioDTO>> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<List<EnvioDTO>>() {}
-        );
-        List<EnvioDTO> envios = response.getBody();
+        List<EnvioDTO> envios = envioClient.buscarPorPedido(pedidoId);
         if (envios != null && !envios.isEmpty()) {
             return envios.get(0);
         }
